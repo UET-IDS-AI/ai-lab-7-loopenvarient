@@ -105,7 +105,30 @@ def naive_bayes_mle_spam():
 
     # TODO: predict the class of test_email
 
-    raise NotImplementedError
+    labels= np.array(labels)
+    from collections import Counter
+
+    def tokenize(text):
+        return text.split()
+    
+    tokenized_texts = [tokenize(text) for text in texts]
+    vocabulary = set(word for text in tokenized_texts for word in text)
+    
+    priors = {0: np.mean(labels == 0),  # P(ham)
+        1: np.mean(labels == 1)}  # P(spam)
+    
+    word_probs = {0: {}, 1: {}} 
+    for word in vocabulary:
+        word_probs[0][word] = np.mean([word in text for text, label in zip(tokenized_texts, labels) if label == 0])  # P(word|ham)
+        word_probs[1][word] = np.mean([word in text for text, label in zip(tokenized_texts, labels) if label == 1])   # P(word|spam)   
+    
+    def predict(email):
+        tokens = tokenize(email)
+        log_prob_ham = np.log(priors[0]) + sum(np.log(max(word_probs[0].get(word, 1e-6), 1e-10)) for word in tokens)
+        log_prob_spam = np.log(priors[1]) + sum(np.log(max(word_probs[1].get(word, 1e-6), 1e-10)) for word in tokens)
+        return 1 if log_prob_spam > log_prob_ham else 0
+    prediction = predict(test_email)
+    return priors, word_probs, prediction
 
 
 # =========================
@@ -141,4 +164,24 @@ def knn_iris(k=3, test_size=0.2, seed=0):
 
     # TODO: compute accuracies
 
-    raise NotImplementedError
+    dataset= load_iris()
+    X = dataset.data
+    y = dataset.target
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed)
+    def euclidean_distance(a, b):
+        return np.sqrt(np.sum((a - b) ** 2))
+    def knn_predict(X_train, y_train, X_test, k):
+        predictions = []
+        for test_point in X_test:
+            distances = np.array([euclidean_distance(test_point, train_point) for train_point in X_train])
+            nearest_indices = np.argsort(distances)[:k]
+            nearest_labels = y_train[nearest_indices]
+            predicted_label = np.bincount(nearest_labels).argmax()
+            predictions.append(predicted_label)
+        return np.array(predictions)
+    test_predictions = knn_predict(X_train, y_train, X_test, k)
+    train_predictions = knn_predict(X_train, y_train, X_train, k)
+    train_accuracy = accuracy_score(y_train, train_predictions)
+    test_accuracy = accuracy_score(y_test, test_predictions)
+    return train_accuracy, test_accuracy, test_predictions
+
